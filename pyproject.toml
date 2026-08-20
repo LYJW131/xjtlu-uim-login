@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xjtlu-uim-login"
+version = "0.1.0"
+description = "Minimal XJTLU UIM login via jsdom (Ruishu 412 / KgdICDMu)"
+requires-python = ">=3.10"
+dependencies = [
+  "pyotp>=2.9.0",
+  "python-dotenv>=1.0.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["xjtlu_uim_login"]
+
+[tool.setuptools.package-data]
+xjtlu_uim_login = ["uim_jsdom.js", "package.json"]

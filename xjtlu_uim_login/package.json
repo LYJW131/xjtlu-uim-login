@@ -1,0 +1,8 @@
+{
+  "name": "xjtlu-uim-login-jsdom",
+  "private": true,
+  "description": "jsdom runtime for XJTLU UIM Ruishu challenge",
+  "dependencies": {
+    "jsdom": "30.0.1"
+  }
+}

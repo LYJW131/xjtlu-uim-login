@@ -1,8 +1,0 @@
-{
-  "name": "xjtlu-uim-login",
-  "private": true,
-  "description": "Minimal XJTLU UIM login via jsdom (Ruishu 412 / KgdICDMu)",
-  "dependencies": {
-    "jsdom": "30.0.1"
-  }
-}

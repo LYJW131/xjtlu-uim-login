@@ -1,16 +1,15 @@
 #!/usr/bin/env node
 /**
- * 在 jsdom 里执行 UIM 瑞数 412 脚本（hook XHR、附加 KgdICDMu），
- * 再调用官方 JSON doLogin，把 TGC 写到 stdout。
- *
- * stdin:  { "username": "...", "password": "...", "otp": "123456" }
- * stdout: { "ok": true, "tgc": "...", "cookies": [...] }
- * 日志走 stderr。
+ * stdin JSON:
+ *   { username, password, otp?, idp?: { action, data }, cookies?: [], skipLogin?: bool }
+ * stdout JSON:
+ *   { ok, tgc, cookies, samlHtml? }
  */
 "use strict";
 
 const fs = require("fs");
 const crypto = require("crypto");
+const querystring = require("querystring");
 const { JSDOM, CookieJar, VirtualConsole } = require("jsdom");
 
 const UIM_ORIGIN = "https://uim.xjtlu.edu.cn";
@@ -68,6 +67,20 @@ function dumpCookies(jar) {
   });
 }
 
+async function setCookies(jar, cookies) {
+  for (const item of cookies || []) {
+    if (!item || !item.name || item.value == null) continue;
+    const domain = item.domain || "uim.xjtlu.edu.cn";
+    const path = item.path || "/";
+    const header = `${item.name}=${item.value}; Domain=${domain}; Path=${path}`;
+    try {
+      await jar.setCookie(header, UIM_ORIGIN + "/");
+    } catch (err) {
+      log("setCookie skip", item.name, err.message);
+    }
+  }
+}
+
 async function waitPolicy(window) {
   let last = null;
   for (let i = 0; i < 25; i++) {
@@ -82,7 +95,7 @@ async function waitPolicy(window) {
   );
 }
 
-async function login(window, username, password, otp) {
+async function doLogin(window, username, password, otp) {
   const policy = await waitPolicy(window);
   const param = (policy.data && policy.data.param) || {};
   if (!param.publicKey || !param.publicKeyId) {
@@ -137,7 +150,8 @@ async function login(window, username, password, otp) {
 
 async function main() {
   const input = JSON.parse(fs.readFileSync(0, "utf8") || "{}");
-  if (!input.username || !input.password) {
+  const skipLogin = Boolean(input.skipLogin);
+  if (!skipLogin && (!input.username || !input.password)) {
     throw new Error("缺少 username/password");
   }
 
@@ -153,15 +167,43 @@ async function main() {
     pretendToBeVisual: true,
     virtualConsole,
   });
+  const window = dom.window;
   await sleep(1500);
 
-  await login(dom.window, input.username, input.password, input.otp);
+  if (Array.isArray(input.cookies) && input.cookies.length) {
+    await setCookies(jar, input.cookies);
+  }
+
+  if (skipLogin) {
+    await waitPolicy(window);
+  } else {
+    await doLogin(window, input.username, input.password, input.otp);
+  }
+
+  let samlHtml = null;
+  if (input.idp && input.idp.action && input.idp.data) {
+    const body = querystring.stringify(input.idp.data);
+    const resp = await xhr(
+      window,
+      "POST",
+      input.idp.action,
+      body,
+      "application/x-www-form-urlencoded",
+    );
+    log("idp", resp.status, "len", resp.text.length);
+    if (resp.status !== 200 || !resp.text.includes("SAMLResponse")) {
+      throw new Error(`IdP SAML 失败: status=${resp.status}`);
+    }
+    samlHtml = resp.text;
+  }
 
   const cookies = await dumpCookies(jar);
   const tgc = (cookies.find((c) => c.name === "TGC") || {}).value || null;
-  if (!tgc) throw new Error("登录成功但未拿到 TGC");
+  if (!tgc && !skipLogin) throw new Error("登录成功但未拿到 TGC");
 
-  process.stdout.write(JSON.stringify({ ok: true, tgc, cookies }));
+  const out = { ok: true, tgc, cookies };
+  if (samlHtml != null) out.samlHtml = samlHtml;
+  process.stdout.write(JSON.stringify(out));
 }
 
 main().catch((err) => {
