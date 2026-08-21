@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "xjtlu-uim-login"
 version = "0.1.0"
-description = "Minimal XJTLU UIM login (HTTP jsdom-UA, jsdom fallback)"
+description = "Minimal XJTLU UIM login (HTTP skip-WAF UA, jsdom fallback)"
 requires-python = ">=3.10"
 dependencies = [
   "pyotp>=2.9.0",

@@ -18,7 +18,8 @@ SCRIPT = PACKAGE_DIR / "uim_jsdom.js"
 UIM_ORIGIN = "https://uim.xjtlu.edu.cn"
 POLICY_URL = f"{UIM_ORIGIN}/esc-sso/api/v3/auth/policy"
 DOLOGIN_URL = f"{UIM_ORIGIN}/esc-sso/api/v3/auth/doLogin"
-# 此版本瑞数对浏览器 UA 发 412，对 jsdom UA 直接 302，不跑挑战脚本
+# 此版本瑞数默认 412；UA 含子串 darwin/okhttp/dalvik/cfnetwork/arkweb，
+# 或「手机 + AppleWebKit」，则直接 302。jsdom 在 macOS 上的默认 UA 带 (darwin)。
 JSDOM_UA = "Mozilla/5.0 (darwin) AppleWebKit/537.36 (KHTML, like Gecko) jsdom/30.0.1"
 
 
@@ -264,7 +265,8 @@ def login(
     """
     执行 UIM 登录，返回 {tgc, cookies, samlHtml?}。
 
-    当前瑞数版本对 jsdom UA 不发 412，优先纯 HTTP；若仍拿到挑战页则回退 jsdom。
+    当前瑞数按 UA 分流：手机 WebKit / darwin 等子串不发 412，优先纯 HTTP；
+    若仍拿到挑战页则回退 jsdom。
     """
     try:
         result = _login_http(
